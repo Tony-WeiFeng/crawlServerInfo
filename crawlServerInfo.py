@@ -1,13 +1,29 @@
+#!/usr/bin/python
+
 import urllib2  
 import os
 import time
 import smtplib  
-import string
-from email.mime.text import MIMEText  
-# from email.header import Header 
+import string 
+
+from email.mime.base import MIMEBase
+from email.mime.text import MIMEText
+
+
+# Preparation: Check the folders, create if not exist  
+workPath = os.path.abspath('.')
+qa1Folder = workPath + '/ultra-qa1/'
+stgFolder = workPath + '/stg/'
+demoFolder = workPath + '/demo/'
+
+folderList = [qa1Folder, stgFolder, demoFolder]
+
+for i in range(len(folderList)):
+    if not os.path.exists(folderList[i]):
+        os.mkdir(folderList[i])
 
 def getId(server):
-	servers = {'qa1':'https://ultra-qa.int.bbpd.io/', 'stg':'https://saas-stg.int.bbpd.io/', 
+	servers = {'qa1':'https://ultra-qa1.int.bbpd.io/', 'stg':'https://saas-stg.int.bbpd.io/', 
 	           'demo':'https://ultra-demo.int.bbpd.io/'}
 	baseURL = servers[server]
 	print(baseURL)
@@ -57,16 +73,18 @@ def saveId(server,dir):
 			for n in range(len(files)+1):
 				lastFile = open(dir + ''.join(files[-(n+1):][0]), 'r')
 				textContent = lastFile.readline().split('\t')
-				if textContent[0] != 'The server is down.' and latestBuildId != textContent[0]:
-				    break
-				oldBuildTime = textContent[1]
+				if textContent[0] != 'The server is down.' and textContent[0] != '':
+					if latestBuildId != textContent[0]:
+						break
+					oldBuildTime = textContent[1]
 				print oldBuildTime
 			for n in range(len(files)+1):
 				lastFile = open(dir + ''.join(files[-(n+1):][0]), 'r')
 				textContent = lastFile.readline().split('\t')
-				if textContent[0] != 'The server is down.' and latestCommitId != textContent[2]:
-				    break
-				oldCommitTime = textContent[3]
+				if textContent[0] != 'The server is down.' and textContent[0] != '':
+					if latestCommitId != textContent[2]:
+						break
+					oldCommitTime = textContent[3]
 
 			dateInFileName = files[-1:][0][0:10]
 			lastFile = open(dir + ''.join(files[-1:][0]), 'r')
@@ -87,102 +105,128 @@ def saveId(server,dir):
 
 def sendMail():
 	data = ['', '', '']
-	data[0] = saveId('qa1','/Users/boliu/takeParam/ultra-qa1/')
-	data[1] = saveId('stg','/Users/boliu/takeParam/stg/')
-	data[2] = saveId('demo','/Users/boliu/takeParam/demo/')
+	data[0] = saveId('qa1',qa1Folder)
+	data[1] = saveId('stg',stgFolder)
+	data[2] = saveId('demo',demoFolder)
 	if data[0][5] or data[1][5] or data[2][5]:
-		sender = 'Bob.Liu@blackboard.com'  
-		receivers = ('Bob.Liu@blackboard.com')
-		# smtpserver = 'outlook.office365.com'  
-		username = 'Bob.Liu@blackboard.com'  
-		password = 'Fight*9'  
-		
 		date = time.strftime('%Y-%m-%d', time.localtime(time.time()))
 		alertFlag = ['','','','','','']
+		dateInfo = ['', '', '', '', '', '']
 		for n in range(len(data)):
-			alertFlag[2*n] = '' if data[n][1] == date else '#00FFFF'
-			alertFlag[2*n+1] = '' if data[n][3] == date else '#00FFFF'
+			 if data[n][1] == date:
+			 	alertFlag[2*n] = ''
+			 	dateInfo[2*n] = ''
+			 else:
+			 	alertFlag[2*n] = '#EA0000'
+			 	dateInfo[2*n] = data[n][1]
+			  
+  			 if data[n][3] == date:
+				alertFlag[2*n+1] = ''
+				dateInfo[2*n+1] = ''
+  			 else:
+  			  	alertFlag[2*n+1] = '#EA0000'
+  			  	dateInfo[2*n+1] = data[n][3]
 		qa1Report = """
-		            <p text-align="left">
 		            Server: https://ultra-qa1.int.bbpd.io<br />
 		            Build: %s<br />
-		            Commit: %s<br /><br />
-		            </p>
-		            """%(data[0][0],data[0][2])
-		            if data[0][0] !='' and data[0][2] !='' else
-                    """"""
+		            Commit: %s
+		            """%(data[0][0],data[0][2]) if data[0][0] !='' and data[0][2] !='' else """ """
 		stgReport = """
-            <p text-align="left">
             Server: https://saas-stg.int.bbpd.io<br />
             Build: %s<br />
-            Commit: %s<br /><br />
-            </p>
-            """%(data[1][0],data[1][2])
-            if data[1][0] !='' and data[1][2] !='' else
-            """""" 
+            Commit: %s
+            """%(data[1][0],data[1][2]) if data[1][0] !='' and data[1][2] !='' else """ """ 
 		demoReport = """
-            <p text-align="left">
-            Server: https://ultra-demo.int.bbpd.io<br />
+			Server: https://ultra-demo.int.bbpd.io<br />
             Build: %s<br />
-            Commit: %s<br /><br />
-            </p>
-            """%(data[2][0],data[2][2])
-            if data[2][0] =='' and data[2][2] =='' else
-            """"""  
-		msgReport = """%s%s%s"""%(qa1Report, stgReport, demoReport)
+            Commit: %s
+            """%(data[2][0],data[2][2]) if data[2][0] !='' and data[2][2] !='' else """ """  
+		msgReport = """
+            		<p text-align="left">
+						%s<br>%s<br>%s
+					</p>
+					"""%(qa1Report, stgReport, demoReport)
 
 		qa1Info = """
 				<tr>
 		     	 <td>ultra-qa1</td>
-		     	 <td>%s<font color=%s>(%s)</font></td>
-				 <td>%s<font color=%s>(%s)</font></td>
+		     	 <td>%s<br />
+		     	 <font color=%s>%s</font>
+		     	 </td>
+				 <td>%s<br />
+				 <font color=%s>%s</font>
+				 </td>
 		     	</tr>
-				"""%(alertFlag[0], data[0][0], data[0][1], alertFlag[1], data[0][2], data[0][3], data[0][4])
-				if data[0][0] !='' and data[0][2] !='' else
-				"""
+				"""%(data[0][0], alertFlag[0], dateInfo[0], data[0][2], alertFlag[1], dateInfo[1]) if data[0][0] !='' and data[0][2] !='' else """
 				<tr>
 				 <td>ultra-qa1</td>
+				 <td colspan="2"><font color="#EA0000" align="center">server is down!</font></td>
+				</tr>
+				"""
+		saasInfo = """
+				<tr>
+		     	 <td>saas-stg</td>
+		     	 <td>%s<br />
+		     	 <font color=%s>%s</font>
+		     	 </td>
+				 <td>%s<br />
+				 <font color=%s>%s</font>
+				 </td>
+		     	</tr>
+				"""%(data[1][0], alertFlag[2], dateInfo[2], data[1][2], alertFlag[3], dateInfo[3]) if data[1][0] !='' and data[1][2] !='' else """
+				<tr>
+				 <td>saas-stg</td>
+				 <td colspan="2"><font color="#EA0000" text-align="center">server is down!</font></td>
+				</tr>
+				"""
+		demoInfo = """
+				<tr>
+		     	 <td>ultra-demo</td>
+		     	 <td>%s<br />
+		     	 <font color=%s>%s</font>
+		     	 </td>
+				 <td>%s<br />
+				 <font color=%s>%s</font>
+				 </td>
+		     	</tr>
+				"""%(data[2][0], alertFlag[4], dateInfo[4], data[2][2], alertFlag[5], dateInfo[5]) if data[2][0] !='' and data[2][2] !='' else """
+				<tr>
+				 <td>ultra-demo</td>
 				 <td colspan="2"><font color="#EA0000">server is down!</font></td>
 				</tr>
 				"""
-
+		jiraFormat = """
+					||server||environment||status||<br>
+					|ultra-qa1|%s|work well|<br>
+					|saas-stg|%s|work well|<br>
+					|demo|%s|work well|
+					"""%(qa1Report, stgReport, demoReport)
+		dateSend = time.strftime('%Y.%m.%d  %H:%M:%S', time.localtime(time.time()))
 		msg = MIMEText("""
-			<table width="1000" border="1" cellspacing="0" cellpadding="4">
-		     <tr>
-		      <th>server</th>
-		      <th>buildID</th>
-		      <th>commitID</th>
-		     </tr>
-		     <tr>
-		      <td>ultra-qa1</td>
-		      <td bgcolor=%s>%s(%s)</td>
-		      <td bgcolor=%s>%s(%s)</td>
-		      <td>%s</td>
-		     </tr>
-		     <tr>
-		      <td>saas-stg</td>
-		      <td bgcolor=%s>%s(%s)</td>
-		      <td bgcolor=%s>%s(%s)</td>
-		      <td>%s</td>
-		    </tr>
-		    <tr>
-		     <td>ultra-demo</td>
-		      <td bgcolor=%s>%s(%s)</td>
-		      <td bgcolor=%s>%s(%s)</td>
-		      <td>%s</td>
-		    </tr>
-		    </table><br><br>%s"""%(alertFlag[0], data[0][0], data[0][1], alertFlag[1], data[0][2], data[0][3], data[0][4],
-		    	         alertFlag[2], data[1][0], data[1][1], alertFlag[3], data[1][2], data[1][3], data[1][4],
-		    	         alertFlag[4], data[2][0], data[2][1], alertFlag[5], data[2][2], data[2][3], data[2][4], msgReport),
-		    	         "html","utf-8")
+			<p><h3>Script Execute Time:  %s</h3></p><br>
+			<table border="1" cellspacing="0" cellpadding="5">
+			  <tr>
+				<th>server</th>
+				<th>commit id</th>
+				<th>build id</th>
+			  </tr>
+		     %s
+		     %s
+             %s
+		    </table><br><br>%s<br>%s<br><br><br>
+		    Thanks,<br>
+		    Learn Shanghai QA Team
+		    """%(dateSend, qa1Info, saasInfo, demoInfo, msgReport, jiraFormat), "html", "utf-8")
 
-		msg['subject'] = 'this is a test'
-		smtp = smtplib.SMTP()  
-		smtp.connect('outlook.office365.com','submission')
-		smtp.starttls()  
-		smtp.ehlo() 
-		smtp.login(username, password)  
-		smtp.sendmail(sender, receivers, msg.as_string())  
-		smtp.quit()  
+		fro = 'printer.shanghai@blackboard.com'
+		to = 'Tony.Feng@blackboard.com'
+		smtpserver = '10.75.106.10:25'
+        msg['From'] = fro
+        msg['Subject'] = 'Servers information'
+        msg['To'] = to
+
+        smtp = smtplib.SMTP(smtpserver)
+        smtp.sendmail(fro, to, msg.as_string())
+        smtp.close()
 
 sendMail()
